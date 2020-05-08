@@ -10,6 +10,9 @@
 # 03/05/2020 0.06: Basic fast forward functionality using playback speed. Time in FL studio seems to be mismatched.
 #                  Lights work.
 #                  Mode switching now using shift modifier.
+# 08/05/2020 0.07: fastForward/rewind implemented using transport.fastForward/transport.rewind
+#                  kill LEDs when exiting FL Studio
+
 
 # This import section is loading the back-end code required to execute the script. You may not need all modules that are available for all scripts.
 
@@ -57,6 +60,7 @@ class MidiInHandler():
 			85:[("ShiftAction", "setPatternMode")],
 			86:[("ShiftAction", "setPlayListMode"), ("TransportAction", "toggleLoopMode")], 
 			81:[("ShiftAction", "setUserMode")],
+			66:[("TransportAction", "pressRewind"), ("ReleaseAction", "releaseRewind")],
 			67:[("TransportAction", "pressFastForward"), ("ReleaseAction", "releaseFastForward")]
 		}
 		print("Note: " + str(i))
@@ -72,6 +76,7 @@ class MidiInHandler():
 		global shiftModifier
 		print ("controller mode: " + str(controllerMode))
 		print("MIDI data: " + str("data1: " + str(event.data1) + " data2: " + str(event.data2) + " midiChan: " +str(event.midiChan) + " midiID: " + str(event.midiId)))
+		print("midi property test:" + str(midi.MIDI_NOTEOFF))
 		if (event.midiChan == 0 and event.pmeFlags and midi.PME_System != 0): # MidiChan == 0 --> To not interfere with notes played on the keybed
 			noteFuncList = self.noteDict(event.data1)
 			for noteFunc in noteFuncList:
@@ -137,11 +142,16 @@ class ShiftAction():
 class ReleaseAction():
 	def releaseFastForward(self, note):
 		if (controllerMode == ctrlTransport):
-			transport.setPlaybackSpeed(1)
+			transport.fastForward(0)
 			ledCtrl = LedControl()
 			ledCtrl.setLedOff(note)
 			print ("fastForward off")
-
+	def releaseRewind(self, note):
+		if (controllerMode == ctrlTransport):
+			transport.rewind(0)
+			ledCtrl = LedControl()
+			ledCtrl.setLedOff(note)
+			print ("rewind off")
 #Handle actions that will be independent of selected mode.
 class GlobalAction():
 	def togglePlay(self, note):
@@ -166,12 +176,15 @@ class TransportAction():
 			transport.setLoopMode()
 			print("Song/Pattern Mode toggled")
 	def pressFastForward(self, note):
-		if (transport.isPlaying() == 1):
-			transport.setPlaybackSpeed(10)
-			ledCtrl = LedControl()
-			ledCtrl.setLedMono(note, False)
+		transport.fastForward(2)
+		ledCtrl = LedControl()
+		ledCtrl.setLedMono(note, False)
 		print ("fastForward on")
-
+	def pressRewind(self, note):
+		transport.rewind(2)
+		ledCtrl = LedControl()
+		ledCtrl.setLedMono(note, False)
+		print ("rewind on")
 #Set them LEDs
 class LedControl():
 	def __init__(self):
@@ -223,3 +236,6 @@ def OnMidiMsg(event):
 def OnInit():
 	start.startTheShow()
 	
+def OnDeInit():
+	ledCtrl = LedControl()
+	ledCtrl.killAllLights()
